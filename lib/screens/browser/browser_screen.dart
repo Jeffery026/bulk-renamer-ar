@@ -57,13 +57,13 @@ class _BrowserScreenState extends State<BrowserScreen> {
             icon: Icon(_searching ? Icons.close : Icons.search),
             onPressed: () { setState(() { _searching = !_searching; if (!_searching) { _searchCtrl.clear(); fp.setSearch(''); } }); },
           ),
-          PopupMenuButton(itemBuilder: (_) => [
-            PopupMenuItem(child: Row(children: [Icon(fp.showHidden ? Icons.visibility_off : Icons.visibility), const SizedBox(width: 8), Text(fp.showHidden ? 'إخفاء المخفية' : 'عرض المخفية')]), onTap: fp.toggleHidden),
-            const PopupMenuDivider(),
-            const PopupMenuItem(child: Text('ترتيب حسب الاسم'), value: 'name'),
-            const PopupMenuItem(child: Text('ترتيب حسب التاريخ'), value: 'date'),
-            const PopupMenuItem(child: Text('ترتيب حسب الحجم'), value: 'size'),
-            const PopupMenuItem(child: Text('ترتيب حسب الامتداد'), value: 'ext'),
+          PopupMenuButton<String>(itemBuilder: (_) => <PopupMenuEntry<String>>[
+            PopupMenuItem<String>(child: Row(children: [Icon(fp.showHidden ? Icons.visibility_off : Icons.visibility), const SizedBox(width: 8), Text(fp.showHidden ? 'إخفاء المخفية' : 'عرض المخفية')]), onTap: fp.toggleHidden),
+            const PopupMenuDivider<String>(),
+            const PopupMenuItem<String>(child: Text('ترتيب حسب الاسم'), value: 'name'),
+            const PopupMenuItem<String>(child: Text('ترتيب حسب التاريخ'), value: 'date'),
+            const PopupMenuItem<String>(child: Text('ترتيب حسب الحجم'), value: 'size'),
+            const PopupMenuItem<String>(child: Text('ترتيب حسب الامتداد'), value: 'ext'),
           ], onSelected: (v) {
             final by = {'name': SortBy.name, 'date': SortBy.date, 'size': SortBy.size, 'ext': SortBy.extension}[v]!;
             fp.setSort(by, fp.sortOrder == SortOrder.ascending ? SortOrder.descending : SortOrder.ascending);
