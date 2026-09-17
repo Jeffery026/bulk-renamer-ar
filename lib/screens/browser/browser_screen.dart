@@ -49,7 +49,7 @@ class _BrowserScreenState extends State<BrowserScreen> {
                   const Text('متصفح الملفات',
                       style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   Text(_shortPath(fp.currentPath),
-                      style: TextStyle(fontSize: 11, color: cs.onSurface.withValues(alpha: 0.6))),
+                      style: TextStyle(fontSize: 11, color: cs.onSurface.withOpacity(0.6))),
                 ])),
         actions: [
           IconButton(
@@ -167,7 +167,7 @@ class _BrowserScreenState extends State<BrowserScreen> {
           trailing: Checkbox(value: item.selected, onChanged: (_) => fp.toggleSelect(item)),
           onTap: () => fp.toggleSelect(item),
           selected: item.selected,
-          selectedTileColor: cs.primaryContainer.withValues(alpha: 0.3),
+          selectedTileColor: cs.primaryContainer.withOpacity(0.3),
         );
       },
     );
