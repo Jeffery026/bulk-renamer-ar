@@ -64,7 +64,7 @@ class PositionStepper extends StatelessWidget {
         child: Container(
           width: 44, height: 44,
           alignment: Alignment.center,
-          child: Icon(icon, color: onTap == null ? cs.onSurface.withValues(alpha: 0.3) : cs.primary),
+          child: Icon(icon, color: onTap == null ? cs.onSurface.withOpacity(0.3) : cs.primary),
         ),
       ),
     );
