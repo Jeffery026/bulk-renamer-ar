@@ -26,7 +26,7 @@ class SectionCard extends StatelessWidget {
       duration: const Duration(milliseconds: 200),
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
       decoration: BoxDecoration(
-        color: enabled ? cs.surface : cs.surfaceContainerHighest.withValues(alpha: 0.5),
+        color: enabled ? cs.surface : cs.surfaceContainerHighest.withOpacity(0.5),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: enabled ? cardColor : cs.outlineVariant, width: enabled ? 1.5 : 1),
       ),
