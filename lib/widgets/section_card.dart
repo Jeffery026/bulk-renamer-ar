@@ -1,69 +1,96 @@
 import 'package:flutter/material.dart';
 
-class SectionCard extends StatelessWidget {
+class OpSection extends StatelessWidget {
   final String title;
-  final IconData icon;
+  final Color labelColor;
   final bool enabled;
   final ValueChanged<bool> onToggle;
   final Widget child;
-  final Color? color;
 
-  const SectionCard({
+  const OpSection({
     super.key,
     required this.title,
-    required this.icon,
+    required this.labelColor,
     required this.enabled,
     required this.onToggle,
     required this.child,
-    this.color,
   });
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final cardColor = color ?? cs.primaryContainer;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-      decoration: BoxDecoration(
-        color: enabled ? cs.surface : cs.surfaceContainerHighest.withOpacity(0.5),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: enabled ? cardColor : cs.outlineVariant, width: enabled ? 1.5 : 1),
-      ),
-      child: Column(
-        children: [
-          InkWell(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-            onTap: () => onToggle(!enabled),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: enabled ? cardColor : cs.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(icon, color: enabled ? cs.onPrimaryContainer : cs.onSurfaceVariant, size: 20),
-                  ),
-                  const SizedBox(width: 12),
-                  Text(title, style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: enabled ? cs.onSurface : cs.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
-                  )),
-                  const Spacer(),
-                  Switch(value: enabled, onChanged: onToggle),
-                ],
-              ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: labelColor,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(title, style: const TextStyle(
+              color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+          ),
+          const Spacer(),
+          Switch(value: enabled, onChanged: onToggle),
+        ]),
+        AnimatedOpacity(
+          opacity: enabled ? 1.0 : 0.4,
+          duration: const Duration(milliseconds: 200),
+          child: IgnorePointer(
+            ignoring: !enabled,
+            child: Card(
+              margin: EdgeInsets.zero,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12)),
+              child: Padding(padding: const EdgeInsets.all(12), child: child),
             ),
           ),
-          if (enabled) ...[
-            Divider(height: 1, color: cardColor),
-            Padding(padding: const EdgeInsets.all(16), child: child),
-          ],
-        ],
-      ),
+        ),
+      ]),
+    );
+  }
+}
+
+class TxtField extends StatefulWidget {
+  final String initial;
+  final String label;
+  final String hint;
+  final void Function(String) onChanged;
+  final TextInputType keyboardType;
+
+  const TxtField({
+    super.key,
+    required this.initial,
+    required this.label,
+    this.hint = '',
+    required this.onChanged,
+    this.keyboardType = TextInputType.text,
+  });
+
+  @override
+  State<TxtField> createState() => _TxtFieldState();
+}
+
+class _TxtFieldState extends State<TxtField> {
+  late final TextEditingController _c;
+
+  @override
+  void initState() {
+    super.initState();
+    _c = TextEditingController(text: widget.initial);
+  }
+
+  @override
+  void dispose() { _c.dispose(); super.dispose(); }
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: _c,
+      keyboardType: widget.keyboardType,
+      decoration: InputDecoration(labelText: widget.label, hintText: widget.hint),
+      onChanged: widget.onChanged,
     );
   }
 }
