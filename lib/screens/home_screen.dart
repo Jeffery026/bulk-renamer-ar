@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'screens/browser/browser_screen.dart';
-import 'screens/operations/operations_screen.dart';
-import 'screens/preview/preview_screen.dart';
+import 'browser/browser_screen.dart';
+import 'operations/operations_screen.dart';
+import 'preview/preview_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
