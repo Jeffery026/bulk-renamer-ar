@@ -7,14 +7,12 @@ import '../../operations/rename_engine.dart';
 
 class PreviewScreen extends StatefulWidget {
   const PreviewScreen({super.key});
-  @override
-  State<PreviewScreen> createState() => _PreviewScreenState();
+  @override State<PreviewScreen> createState() => _S();
 }
 
-class _PreviewScreenState extends State<PreviewScreen> {
+class _S extends State<PreviewScreen> {
   bool _running = false;
-  int _done = 0;
-  int _total = 0;
+  int _done = 0, _total = 0;
   final List<String> _errors = [];
 
   @override
@@ -23,199 +21,275 @@ class _PreviewScreenState extends State<PreviewScreen> {
     final op = context.watch<OperationsProvider>();
     final cs = Theme.of(context).colorScheme;
     final selected = fp.selectedItems;
-    final results = RenameEngine.applyAll(
-        selected.map((f) => f.name).toList(), op.config);
-    final changeCount = results.where((r) => r.hasChange).length;
+    final results = RenameEngine.applyAll(selected.map((f) => f.name).toList(), op.config);
+    final changes = results.where((r) => r.hasChange).length;
 
     return Scaffold(
+      backgroundColor: cs.surfaceContainerLowest,
       appBar: AppBar(
-        backgroundColor: cs.primary,
-        foregroundColor: Colors.white,
-        title: const Text('المخرجات والمعاينة',
-            style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: cs.primary, foregroundColor: Colors.white, elevation: 0,
+        title: const Text('التنفيذ والمعاينة', style: TextStyle(fontWeight: FontWeight.bold)),
       ),
-      body: Column(children: [
-        // Output options
-        Container(
-          padding: const EdgeInsets.all(14),
-          color: cs.surfaceContainerHighest,
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('نوع العملية:', style: TextStyle(
-                fontWeight: FontWeight.bold, color: cs.onSurfaceVariant)),
-            const SizedBox(height: 8),
-            Row(children: [
-              Expanded(child: _outCard(
-                context, 'استبدال الأصل', Icons.swap_horiz,
-                'إعادة تسمية الملفات في مكانها',
-                fp.deleteOriginal, () => fp.setDeleteOriginal(true), cs)),
-              const SizedBox(width: 8),
-              Expanded(child: _outCard(
-                context, 'نسخ وتسمية', Icons.copy,
-                'إنشاء نسخ مع الاسم الجديد',
-                !fp.deleteOriginal, () => fp.setDeleteOriginal(false), cs)),
-            ]),
-            if (!fp.deleteOriginal) ...[
-              const SizedBox(height: 10),
-              Row(children: [
-                Expanded(
-                  child: Text(fp.outputPath ?? 'نفس مجلد الملفات الأصلية',
-                      style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
-                      overflow: TextOverflow.ellipsis),
+      body: selected.isEmpty
+          ? _empty(cs)
+          : Column(children: [
+              // Output type
+              Container(
+                color: cs.surface,
+                padding: const EdgeInsets.all(14),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('نوع العملية', style: TextStyle(fontWeight: FontWeight.bold, color: cs.onSurface)),
+                  const SizedBox(height: 10),
+                  Row(children: [
+                    Expanded(child: _outBtn(context, 'استبدال الأصل', Icons.swap_horiz_rounded,
+                        'تعديل الاسم مباشرة', fp.deleteOriginal, () => fp.setDeleteOriginal(true), cs)),
+                    const SizedBox(width: 8),
+                    Expanded(child: _outBtn(context, 'نسخ وتسمية', Icons.copy_rounded,
+                        'الاحتفاظ بالأصل', !fp.deleteOriginal, () => fp.setDeleteOriginal(false), cs)),
+                  ]),
+                  if (!fp.deleteOriginal) ...[
+                    const SizedBox(height: 10),
+                    Row(children: [
+                      Expanded(child: Text(
+                        fp.outputPath ?? 'نفس مجلد الملفات',
+                        style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                        overflow: TextOverflow.ellipsis,
+                      )),
+                      TextButton.icon(
+                        onPressed: () => _pickOutputFolder(context, fp),
+                        icon: const Icon(Icons.folder_open_rounded, size: 16),
+                        label: const Text('تغيير', style: TextStyle(fontSize: 13)),
+                      ),
+                    ]),
+                  ],
+                ]),
+              ),
+              const SizedBox(height: 4),
+              // Summary banner
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  color: changes > 0 ? cs.primaryContainer : cs.surfaceContainer,
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                TextButton.icon(
-                  onPressed: () {},
-                  icon: const Icon(Icons.folder_open, size: 16),
-                  label: const Text('تغيير'),
-                ),
-              ]),
-            ],
-          ]),
-        ),
-        // Summary
-        if (selected.isNotEmpty)
-          Container(
-            margin: const EdgeInsets.fromLTRB(12, 10, 12, 0),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: changeCount > 0 ? cs.primaryContainer : cs.errorContainer,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(children: [
-              Icon(changeCount > 0 ? Icons.check_circle_outline : Icons.info_outline,
-                  color: changeCount > 0 ? cs.primary : cs.error),
-              const SizedBox(width: 10),
-              Text(
-                changeCount > 0
-                    ? '$changeCount من ${selected.length} ملف سيتغير اسمه'
-                    : selected.isEmpty ? 'اختر ملفات أولاً من الشاشة الأولى'
-                        : 'لا تغييرات — فعّل خياراً من الشاشة الثانية',
-                style: TextStyle(fontWeight: FontWeight.w500,
-                    color: changeCount > 0 ? cs.onPrimaryContainer : cs.onErrorContainer),
+                child: Row(children: [
+                  Icon(changes > 0 ? Icons.check_circle_outline_rounded : Icons.info_outline_rounded,
+                      color: changes > 0 ? cs.primary : cs.onSurfaceVariant, size: 20),
+                  const SizedBox(width: 10),
+                  Text(
+                    changes > 0
+                        ? '$changes ملف سيتغير اسمه من أصل ${selected.length}'
+                        : 'لا تغييرات — فعّل خياراً من تبويب الخيارات',
+                    style: TextStyle(
+                      color: changes > 0 ? cs.onPrimaryContainer : cs.onSurfaceVariant,
+                      fontWeight: FontWeight.w500, fontSize: 13,
+                    ),
+                  ),
+                ]),
+              ),
+              // List label
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                child: Row(children: [
+                  Text('معاينة الملفات', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: cs.onSurface)),
+                  const Spacer(),
+                  Text('${selected.length} ملف', style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+                ]),
+              ),
+              // Preview list
+              Expanded(child: ListView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                itemCount: results.length,
+                itemBuilder: (_, i) {
+                  final r = results[i];
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 6),
+                    decoration: BoxDecoration(
+                      color: cs.surface,
+                      borderRadius: BorderRadius.circular(12),
+                      border: r.hasChange ? Border.all(color: cs.primary.withOpacity(0.3)) : null,
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Row(children: [
+                        Icon(Icons.insert_drive_file_outlined, size: 14, color: cs.onSurfaceVariant),
+                        const SizedBox(width: 6),
+                        Expanded(child: Text(r.originalName,
+                            style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                            overflow: TextOverflow.ellipsis)),
+                      ]),
+                      if (r.hasChange) ...[
+                        const SizedBox(height: 4),
+                        Row(children: [
+                          Icon(Icons.arrow_downward_rounded, size: 14, color: cs.primary),
+                          const SizedBox(width: 6),
+                          Expanded(child: Text(r.newName,
+                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: cs.primary),
+                              overflow: TextOverflow.ellipsis)),
+                        ]),
+                      ] else
+                        Padding(
+                          padding: const EdgeInsets.only(top: 3),
+                          child: Text('← بدون تغيير', style: TextStyle(fontSize: 11, color: cs.outlineVariant)),
+                        ),
+                    ]),
+                  );
+                },
+              )),
+              // Execute
+              Container(
+                color: cs.surface,
+                padding: const EdgeInsets.fromLTRB(14, 10, 14, 20),
+                child: _running
+                    ? Column(children: [
+                        LinearProgressIndicator(value: _total > 0 ? _done / _total : null,
+                            borderRadius: BorderRadius.circular(4)),
+                        const SizedBox(height: 8),
+                        Text('جارٍ إعادة التسمية... $_done من $_total',
+                            style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
+                      ])
+                    : FilledButton.icon(
+                        onPressed: changes > 0
+                            ? () => _execute(context, selected.map((f) => f.file).toList(), op, fp)
+                            : null,
+                        icon: const Icon(Icons.play_arrow_rounded),
+                        label: Text('بدء إعادة التسمية ($changes ملف)'),
+                        style: FilledButton.styleFrom(minimumSize: const Size(double.infinity, 52)),
+                      ),
               ),
             ]),
-          ),
-        // Preview list label
-        if (selected.isNotEmpty) Padding(
-          padding: const EdgeInsets.fromLTRB(14, 12, 14, 4),
-          child: Row(children: [
-            Text('معاينة: ', style: TextStyle(
-                fontWeight: FontWeight.bold, color: cs.onSurface)),
-            Text('${selected.length} ملف', style: TextStyle(color: cs.onSurfaceVariant)),
-          ]),
-        ),
-        // Preview list
-        Expanded(
-          child: selected.isEmpty
-              ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(Icons.preview, size: 64, color: cs.outlineVariant),
-                  const SizedBox(height: 12),
-                  const Text('اختر ملفات من الشاشة الأولى'),
-                ]))
-              : ListView.separated(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  itemCount: results.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
-                  itemBuilder: (_, i) {
-                    final r = results[i];
-                    return ListTile(
-                      dense: true,
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 2),
-                      title: Text(r.originalName,
-                          style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
-                      subtitle: r.hasChange
-                          ? Row(children: [
-                              Icon(Icons.subdirectory_arrow_right, size: 14, color: cs.primary),
-                              const SizedBox(width: 4),
-                              Expanded(child: Text(r.newName, style: TextStyle(
-                                  color: cs.primary, fontWeight: FontWeight.w500,
-                                  fontSize: 13))),
-                            ])
-                          : Text('بدون تغيير',
-                              style: TextStyle(fontSize: 12, color: cs.outlineVariant)),
-                    );
-                  },
-                ),
-        ),
-        // Execute
-        if (_running)
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(children: [
-              LinearProgressIndicator(value: _total > 0 ? _done / _total : null),
-              const SizedBox(height: 8),
-              Text('جارٍ إعادة التسمية... $_done / $_total'),
-            ]),
-          )
-        else
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 8, 14, 16),
-            child: FilledButton.icon(
-              onPressed: changeCount > 0
-                  ? () => _execute(context,
-                      selected.map((f) => f.file).toList(), op, fp)
-                  : null,
-              icon: const Icon(Icons.play_arrow),
-              label: Text('بدء إعادة التسمية ($changeCount ملف)'),
-              style: FilledButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 50)),
-            ),
-          ),
-      ]),
     );
   }
 
-  Widget _outCard(BuildContext ctx, String title, IconData icon, String desc,
+  Widget _empty(ColorScheme cs) {
+    return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+      Icon(Icons.folder_open_rounded, size: 80, color: cs.outlineVariant),
+      const SizedBox(height: 20),
+      Text('لم تختر أي ملفات', style: TextStyle(fontSize: 16, color: cs.onSurfaceVariant)),
+      const SizedBox(height: 8),
+      Text('انتقل لتبويب الملفات وحدد الملفات المراد تسميتها',
+          style: TextStyle(fontSize: 13, color: cs.outlineVariant), textAlign: TextAlign.center),
+    ]));
+  }
+
+  Widget _outBtn(BuildContext ctx, String title, IconData icon, String desc,
       bool selected, VoidCallback onTap, ColorScheme cs) {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.all(10),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: selected ? cs.primaryContainer : cs.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-              color: selected ? cs.primary : cs.outlineVariant,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: selected ? cs.primary : cs.outlineVariant,
               width: selected ? 1.5 : 1),
         ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Icon(icon, size: 20, color: selected ? cs.primary : cs.onSurfaceVariant),
-          const SizedBox(height: 4),
-          Text(title, style: TextStyle(
-              fontWeight: FontWeight.bold, fontSize: 13,
-              color: selected ? cs.primary : cs.onSurface)),
-          Text(desc, style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
+        child: Row(children: [
+          Icon(icon, size: 22, color: selected ? cs.primary : cs.onSurfaceVariant),
+          const SizedBox(width: 10),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13,
+                color: selected ? cs.primary : cs.onSurface)),
+            Text(desc, style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
+          ])),
         ]),
       ),
     );
   }
 
-  Future<void> _execute(BuildContext context, List<File> files,
-      OperationsProvider op, FilesProvider fp) async {
+  void _pickOutputFolder(BuildContext ctx, FilesProvider fp) {
+    showModalBottomSheet(
+      context: ctx, isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => _FolderPicker(
+        initialPath: fp.currentPath,
+        onPicked: (path) { fp.setOutputPath(path); Navigator.pop(ctx); },
+      ),
+    );
+  }
+
+  Future<void> _execute(BuildContext ctx, List<File> files, OperationsProvider op, FilesProvider fp) async {
     setState(() { _running = true; _done = 0; _total = files.length; _errors.clear(); });
     await RenameEngine.executeRename(
       files: files, cfg: op.config,
-      outputDir: fp.deleteOriginal ? null : fp.outputPath,
+      outputDir: fp.deleteOriginal ? null : (fp.outputPath ?? fp.currentPath),
       deleteOriginal: fp.deleteOriginal,
       onProgress: (d, t) => setState(() { _done = d; _total = t; }),
       onError: (e) => setState(() => _errors.add(e)),
     );
     setState(() => _running = false);
     await fp.loadDirectory(fp.currentPath);
-    if (!context.mounted) return;
-    _showResult(context);
+    if (!ctx.mounted) return;
+    _showDone(ctx);
   }
 
-  void _showResult(BuildContext context) {
-    showDialog(context: context, builder: (_) => AlertDialog(
-      title: const Text('اكتملت العملية'),
+  void _showDone(BuildContext ctx) {
+    showDialog(context: ctx, builder: (_) => AlertDialog(
+      icon: Icon(_errors.isEmpty ? Icons.check_circle_rounded : Icons.warning_rounded,
+          color: _errors.isEmpty ? Colors.green : Colors.orange, size: 40),
+      title: Text(_errors.isEmpty ? 'اكتملت العملية' : 'اكتملت مع تحذيرات'),
       content: Text(_errors.isEmpty
-          ? 'تمت إعادة تسمية $_done ملف بنجاح ✅'
-          : 'تم: $_done ملف\nأخطاء (${_errors.length}):\n${_errors.take(5).join('\n')}'),
-      actions: [TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('موافق'))],
+          ? 'تمت إعادة تسمية $_done ملف بنجاح'
+          : '$_done ملف تمت إعادة تسميته\n${_errors.length} أخطاء:\n${_errors.take(3).join('\n')}'),
+      actions: [FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('موافق'))],
     ));
+  }
+}
+
+class _FolderPicker extends StatefulWidget {
+  final String initialPath;
+  final void Function(String) onPicked;
+  const _FolderPicker({required this.initialPath, required this.onPicked});
+  @override State<_FolderPicker> createState() => _FPS();
+}
+
+class _FPS extends State<_FolderPicker> {
+  late String _path;
+  List<FileSystemEntity> _dirs = [];
+
+  @override
+  void initState() { super.initState(); _path = widget.initialPath; _load(); }
+
+  void _load() {
+    try {
+      _dirs = Directory(_path).listSync().whereType<Directory>().toList()
+        ..sort((a, b) => a.path.split('/').last.compareTo(b.path.split('/').last));
+    } catch (_) { _dirs = []; }
+    if (mounted) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.65,
+      padding: const EdgeInsets.all(16),
+      child: Column(children: [
+        Row(children: [
+          if (_path != '/storage/emulated/0')
+            IconButton(icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
+                onPressed: () { _path = _path.substring(0, _path.lastIndexOf('/')); _load(); }),
+          Expanded(child: Text(_path.replaceFirst('/storage/emulated/0', 'التخزين الداخلي'),
+              style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
+          FilledButton(onPressed: () => widget.onPicked(_path), child: const Text('اختيار هذا المجلد')),
+        ]),
+        const Divider(),
+        Expanded(child: _dirs.isEmpty
+            ? Center(child: Text('لا توجد مجلدات فرعية', style: TextStyle(color: cs.onSurfaceVariant)))
+            : ListView.builder(
+                itemCount: _dirs.length,
+                itemBuilder: (_, i) {
+                  final name = _dirs[i].path.split('/').last;
+                  return ListTile(
+                    leading: const Icon(Icons.folder_rounded, color: Color(0xFFFFB300)),
+                    title: Text(name, style: const TextStyle(fontSize: 14)),
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: () { _path = _dirs[i].path; _load(); },
+                  );
+                })),
+      ]),
+    );
   }
 }
