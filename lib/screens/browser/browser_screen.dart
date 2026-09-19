@@ -5,13 +5,12 @@ import '../../providers/files_provider.dart';
 
 class BrowserScreen extends StatefulWidget {
   const BrowserScreen({super.key});
-  @override
-  State<BrowserScreen> createState() => _BrowserScreenState();
+  @override State<BrowserScreen> createState() => _S();
 }
 
-class _BrowserScreenState extends State<BrowserScreen> {
-  bool _showSearch = false;
-  final _searchCtrl = TextEditingController();
+class _S extends State<BrowserScreen> {
+  bool _searching = false;
+  final _sc = TextEditingController();
 
   @override
   void initState() {
@@ -24,159 +23,131 @@ class _BrowserScreenState extends State<BrowserScreen> {
   }
 
   @override
-  void dispose() { _searchCtrl.dispose(); super.dispose(); }
-
-  List<String> _segments(String path) {
-    final rel = path.replaceFirst(RegExp(r'/storage/emulated/0/?'), '');
-    if (rel.isEmpty) return ['التخزين الداخلي'];
-    return ['التخزين الداخلي', ...rel.split('/').where((s) => s.isNotEmpty)];
-  }
-
-  void _navigateToSegment(FilesProvider fp, int segIndex) {
-    final segs = _segments(fp.currentPath);
-    if (segIndex == 0) {
-      fp.loadDirectory('/storage/emulated/0');
-    } else {
-      final rel = segs.sublist(1, segIndex + 1).join('/');
-      fp.loadDirectory('/storage/emulated/0/$rel');
-    }
-  }
+  void dispose() { _sc.dispose(); super.dispose(); }
 
   @override
   Widget build(BuildContext context) {
     final fp = context.watch<FilesProvider>();
     final cs = Theme.of(context).colorScheme;
-
-    if (!fp.permissionGranted) return _permissionView(context, fp);
-
-    final segs = _segments(fp.currentPath);
+    if (!fp.permissionGranted) return _permView(context, fp, cs);
 
     return Scaffold(
+      backgroundColor: cs.surface,
       appBar: AppBar(
+        elevation: 0,
         backgroundColor: cs.primary,
         foregroundColor: Colors.white,
-        title: _showSearch
+        leading: fp.canGoBack
+            ? IconButton(icon: const Icon(Icons.arrow_back_ios_new, size: 20), onPressed: fp.navigateBack)
+            : IconButton(
+                icon: const Icon(Icons.storage, size: 20),
+                onPressed: () => _storageSheet(context, fp),
+              ),
+        title: _searching
             ? TextField(
-                controller: _searchCtrl,
-                autofocus: true,
+                controller: _sc, autofocus: true,
                 style: const TextStyle(color: Colors.white),
                 decoration: const InputDecoration(
-                  hintText: 'بحث...', hintStyle: TextStyle(color: Colors.white70),
-                  border: InputBorder.none),
-                onChanged: fp.setSearch,
-              )
-            : const Text('اختيار الملفات',
-                style: TextStyle(fontWeight: FontWeight.bold)),
+                  hintText: 'بحث في الملفات...', border: InputBorder.none,
+                  hintStyle: TextStyle(color: Colors.white60)),
+                onChanged: fp.setSearch)
+            : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('اختيار الملفات', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                Text(_shortPath(fp.currentPath),
+                    style: const TextStyle(fontSize: 11, color: Colors.white70),
+                    overflow: TextOverflow.ellipsis),
+              ]),
         actions: [
           IconButton(
-            icon: Icon(_showSearch ? Icons.close : Icons.search),
+            icon: Icon(_searching ? Icons.close : Icons.search, size: 22),
             onPressed: () => setState(() {
-              _showSearch = !_showSearch;
-              if (!_showSearch) { _searchCtrl.clear(); fp.setSearch(''); }
+              _searching = !_searching;
+              if (!_searching) { _sc.clear(); fp.setSearch(''); }
             }),
           ),
-          _menuBtn(context, fp),
+          _menu(context, fp),
         ],
       ),
       body: Column(children: [
-        // Breadcrumbs
+        // breadcrumb
         Container(
           color: cs.primaryContainer,
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          child: Row(children: [
-            if (fp.canGoBack)
-              IconButton(
-                icon: const Icon(Icons.arrow_back, size: 20),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-                onPressed: fp.navigateBack,
-                color: cs.onPrimaryContainer,
-              ),
-            Expanded(
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: List.generate(segs.length, (i) {
-                    final isLast = i == segs.length - 1;
-                    return Row(mainAxisSize: MainAxisSize.min, children: [
-                      GestureDetector(
-                        onTap: isLast ? null : () => _navigateToSegment(fp, i),
-                        child: Text(segs[i], style: TextStyle(
-                          fontSize: 13,
-                          color: isLast ? cs.onPrimaryContainer : cs.onPrimaryContainer.withOpacity(0.6),
-                          fontWeight: isLast ? FontWeight.bold : FontWeight.normal,
-                        )),
-                      ),
-                      if (!isLast) Icon(Icons.chevron_right, size: 14,
-                          color: cs.onPrimaryContainer.withOpacity(0.5)),
-                    ]);
-                  }),
-                ),
-              ),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              children: List.generate(fp.breadcrumbs.length, (i) {
+                final isLast = i == fp.breadcrumbs.length - 1;
+                return Row(mainAxisSize: MainAxisSize.min, children: [
+                  GestureDetector(
+                    onTap: isLast ? null : () => fp.navigateToBreadcrumb(i),
+                    child: Text(fp.breadcrumbs[i], style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: isLast ? FontWeight.bold : FontWeight.normal,
+                      color: isLast ? cs.onPrimaryContainer : cs.onPrimaryContainer.withOpacity(0.6),
+                    )),
+                  ),
+                  if (!isLast) Icon(Icons.chevron_right, size: 14, color: cs.onPrimaryContainer.withOpacity(0.4)),
+                ]);
+              }),
             ),
-          ]),
+          ),
         ),
-        // Sub-folders chips
-        FutureBuilder<List<Directory>>(
-          future: fp.getSubDirectories(fp.currentPath),
-          builder: (_, snap) {
-            if (!snap.hasData || snap.data!.isEmpty) return const SizedBox();
-            return Container(
-              height: 42,
-              color: cs.surface,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                children: snap.data!.map((d) {
-                  final name = d.path.split('/').last;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 6),
-                    child: ActionChip(
-                      avatar: const Icon(Icons.folder, size: 14),
-                      label: Text(name, style: const TextStyle(fontSize: 12)),
-                      visualDensity: VisualDensity.compact,
-                      onPressed: () => fp.navigateTo(d.path),
-                    ),
-                  );
-                }).toList(),
-              ),
-            );
-          },
-        ),
-        // Selection bar
+        // selection bar
         if (fp.selectedCount > 0)
           Container(
-            color: cs.primaryContainer,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            color: cs.secondaryContainer,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Row(children: [
-              Text('${fp.selectedCount} محدد',
-                  style: TextStyle(color: cs.onPrimaryContainer, fontWeight: FontWeight.bold)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(color: cs.primary, borderRadius: BorderRadius.circular(20)),
+                child: Text('${fp.selectedCount} محدد',
+                    style: TextStyle(color: cs.onPrimary, fontWeight: FontWeight.bold, fontSize: 13)),
+              ),
               const Spacer(),
-              TextButton(onPressed: fp.selectAll, child: const Text('اختيار الكل')),
-              TextButton(onPressed: fp.clearSelection, child: const Text('إلغاء الكل')),
+              TextButton(onPressed: fp.selectAll, child: const Text('الكل')),
+              TextButton(onPressed: fp.clearSelection, child: const Text('إلغاء')),
             ]),
           ),
-        // File list
-        Expanded(child: _fileList(fp, cs)),
+        // list
+        Expanded(child: _list(fp, cs)),
       ]),
     );
   }
 
-  Widget _fileList(FilesProvider fp, ColorScheme cs) {
+  Widget _list(FilesProvider fp, ColorScheme cs) {
     final items = fp.items;
     if (items.isEmpty) {
       return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Icon(Icons.folder_open, size: 64, color: cs.outlineVariant),
-        const SizedBox(height: 12),
-        const Text('المجلد فارغ'),
+        Icon(Icons.folder_open_outlined, size: 72, color: cs.outlineVariant),
+        const SizedBox(height: 16),
+        Text('المجلد فارغ', style: TextStyle(color: cs.onSurfaceVariant)),
       ]));
     }
-    return ListView.separated(
+    return ListView.builder(
       itemCount: items.length,
-      separatorBuilder: (_, __) => const Divider(height: 1, indent: 56),
       itemBuilder: (_, i) {
         final item = items[i];
+        if (item.isDir) {
+          return ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+            leading: Container(
+              width: 42, height: 42,
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF8E1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.folder_rounded, color: Color(0xFFFFB300), size: 26),
+            ),
+            title: Text(item.name,
+                style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
+            trailing: const Icon(Icons.chevron_right, color: Colors.grey, size: 20),
+            onTap: () => fp.navigateTo(item.entity.path),
+          );
+        }
         return ListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 1),
           leading: _FileIcon(name: item.name),
           title: Text(item.name, style: const TextStyle(fontSize: 14)),
           subtitle: _FileInfo(file: item.file),
@@ -184,22 +155,22 @@ class _BrowserScreenState extends State<BrowserScreen> {
             value: item.selected,
             onChanged: (_) => fp.toggleSelect(item),
             activeColor: cs.primary,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
           ),
           onTap: () => fp.toggleSelect(item),
           selected: item.selected,
-          selectedTileColor: cs.primaryContainer.withOpacity(0.25),
-          dense: true,
+          selectedTileColor: cs.primaryContainer.withOpacity(0.2),
         );
       },
     );
   }
 
-  Widget _menuBtn(BuildContext context, FilesProvider fp) {
+  Widget _menu(BuildContext ctx, FilesProvider fp) {
     return PopupMenuButton<String>(
       icon: const Icon(Icons.more_vert, color: Colors.white),
       onSelected: (v) {
         if (v == 'hidden') fp.toggleHidden();
-        if (v == 'storage') _showStorage(context, fp);
+        if (v == 'storage') _storageSheet(ctx, fp);
         if (v == 'name') fp.setSort(SortBy.name, fp.sortOrder == SortOrder.ascending ? SortOrder.descending : SortOrder.ascending);
         if (v == 'date') fp.setSort(SortBy.date, SortOrder.descending);
         if (v == 'size') fp.setSort(SortBy.size, SortOrder.descending);
@@ -207,7 +178,7 @@ class _BrowserScreenState extends State<BrowserScreen> {
       itemBuilder: (_) => <PopupMenuEntry<String>>[
         PopupMenuItem<String>(value: 'hidden',
             child: Text(fp.showHidden ? 'إخفاء الملفات المخفية' : 'عرض الملفات المخفية')),
-        const PopupMenuItem<String>(value: 'storage', child: Text('اختيار التخزين')),
+        const PopupMenuItem<String>(value: 'storage', child: Text('تغيير التخزين')),
         const PopupMenuDivider(),
         const PopupMenuItem<String>(value: 'name', child: Text('ترتيب بالاسم')),
         const PopupMenuItem<String>(value: 'date', child: Text('ترتيب بالتاريخ')),
@@ -216,43 +187,53 @@ class _BrowserScreenState extends State<BrowserScreen> {
     );
   }
 
-  void _showStorage(BuildContext ctx, FilesProvider fp) {
-    showModalBottomSheet(context: ctx, builder: (_) => Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const ListTile(title: Text('اختيار التخزين', style: TextStyle(fontWeight: FontWeight.bold))),
+  void _storageSheet(BuildContext ctx, FilesProvider fp) {
+    showModalBottomSheet(context: ctx, builder: (_) => SafeArea(
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Padding(padding: const EdgeInsets.all(16),
+          child: Text('اختيار التخزين',
+              style: Theme.of(ctx).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold))),
         for (final dir in fp.getStorageRoots())
           ListTile(
-            leading: const Icon(Icons.storage),
+            leading: const Icon(Icons.storage_rounded),
             title: Text(dir.path.contains('emulated') ? 'التخزين الداخلي' : 'بطاقة SD'),
+            subtitle: Text(dir.path),
             onTap: () { Navigator.pop(ctx); fp.navigateTo(dir.path); },
           ),
-      ],
+        const SizedBox(height: 8),
+      ]),
     ));
   }
 
-  Widget _permissionView(BuildContext ctx, FilesProvider fp) {
-    return Center(child: Padding(
-      padding: const EdgeInsets.all(32),
+  Widget _permView(BuildContext ctx, FilesProvider fp, ColorScheme cs) {
+    return Scaffold(body: Center(child: Padding(
+      padding: const EdgeInsets.all(40),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-        const Icon(Icons.lock_outline, size: 72, color: Colors.teal),
+        Icon(Icons.folder_off_outlined, size: 80, color: cs.outlineVariant),
         const SizedBox(height: 24),
-        const Text('صلاحية الوصول للملفات',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+        Text('صلاحية الوصول للملفات',
+            style: Theme.of(ctx).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
         const SizedBox(height: 12),
-        const Text('يحتاج التطبيق صلاحية الوصول للتخزين.',
-            textAlign: TextAlign.center),
-        const SizedBox(height: 24),
+        Text('يحتاج التطبيق صلاحية الوصول لتخزين جهازك لإعادة تسمية الملفات.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: cs.onSurfaceVariant)),
+        const SizedBox(height: 32),
         FilledButton.icon(
           onPressed: () async {
             await fp.requestPermission();
             if (fp.permissionGranted) await fp.loadDirectory('/storage/emulated/0');
           },
-          icon: const Icon(Icons.check),
+          icon: const Icon(Icons.lock_open_rounded),
           label: const Text('منح الصلاحية'),
+          style: FilledButton.styleFrom(minimumSize: const Size(200, 48)),
         ),
       ]),
-    ));
+    )));
+  }
+
+  String _shortPath(String p) {
+    final rel = p.replaceFirst(RegExp(r'/storage/emulated/0/?'), '');
+    return rel.isEmpty ? 'التخزين الداخلي' : rel;
   }
 }
 
@@ -262,16 +243,25 @@ class _FileIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ext = name.contains('.') ? name.split('.').last.toLowerCase() : '';
-    IconData icon; Color color;
-    if (['jpg','jpeg','png','gif','webp','bmp','heic'].contains(ext)) { icon=Icons.image; color=Colors.teal; }
-    else if (['mp4','avi','mkv','mov','3gp'].contains(ext)) { icon=Icons.videocam; color=Colors.indigo; }
-    else if (['mp3','flac','wav','aac','ogg'].contains(ext)) { icon=Icons.audiotrack; color=Colors.orange; }
-    else if (ext=='pdf') { icon=Icons.picture_as_pdf; color=Colors.red; }
-    else if (['doc','docx'].contains(ext)) { icon=Icons.description; color=Colors.blue; }
-    else if (['xls','xlsx'].contains(ext)) { icon=Icons.table_chart; color=Colors.green; }
-    else if (['zip','rar','7z'].contains(ext)) { icon=Icons.folder_zip; color=Colors.brown; }
-    else { icon=Icons.insert_drive_file; color=Colors.grey; }
-    return Icon(icon, color: color, size: 26);
+    final data = _icon(ext);
+    return Container(
+      width: 42, height: 42,
+      decoration: BoxDecoration(
+        color: data.$2.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Icon(data.$1, color: data.$2, size: 24),
+    );
+  }
+  (IconData, Color) _icon(String e) {
+    if (['jpg','jpeg','png','gif','webp','bmp','heic'].contains(e)) return (Icons.image_rounded, Colors.teal);
+    if (['mp4','avi','mkv','mov','3gp'].contains(e)) return (Icons.movie_rounded, Colors.indigo);
+    if (['mp3','flac','wav','aac','ogg'].contains(e)) return (Icons.music_note_rounded, Colors.orange);
+    if (e == 'pdf') return (Icons.picture_as_pdf_rounded, Colors.red);
+    if (['doc','docx'].contains(e)) return (Icons.description_rounded, Colors.blue);
+    if (['xls','xlsx'].contains(e)) return (Icons.table_chart_rounded, Colors.green);
+    if (['zip','rar','7z'].contains(e)) return (Icons.folder_zip_rounded, Colors.brown);
+    return (Icons.insert_drive_file_rounded, Colors.grey);
   }
 }
 
