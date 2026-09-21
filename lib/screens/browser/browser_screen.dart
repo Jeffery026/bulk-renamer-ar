@@ -5,10 +5,14 @@ import '../../providers/files_provider.dart';
 
 class BrowserScreen extends StatefulWidget {
   const BrowserScreen({super.key});
-  @override State<BrowserScreen> createState() => _S();
+  @override
+  State<BrowserScreen> createState() => _BS();
 }
 
-class _S extends State<BrowserScreen> {
+class _BS extends State<BrowserScreen> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   bool _searching = false;
   final _sc = TextEditingController();
 
@@ -17,8 +21,10 @@ class _S extends State<BrowserScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final fp = context.read<FilesProvider>();
-      await fp.requestPermission();
-      if (fp.permissionGranted) await fp.loadDirectory('/storage/emulated/0');
+      if (!fp.initialized) {
+        await fp.requestPermission();
+        if (fp.permissionGranted) await fp.loadDirectory('/storage/emulated/0');
+      }
     });
   }
 
@@ -27,54 +33,34 @@ class _S extends State<BrowserScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final fp = context.watch<FilesProvider>();
     final cs = Theme.of(context).colorScheme;
-    if (!fp.permissionGranted) return _permView(context, fp, cs);
 
-    return Scaffold(
-      backgroundColor: cs.surface,
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: cs.primary,
-        foregroundColor: Colors.white,
-        leading: fp.canGoBack
-            ? IconButton(icon: const Icon(Icons.arrow_back_ios_new, size: 20), onPressed: fp.navigateBack)
-            : IconButton(
-                icon: const Icon(Icons.storage, size: 20),
-                onPressed: () => _storageSheet(context, fp),
-              ),
-        title: _searching
-            ? TextField(
-                controller: _sc, autofocus: true,
-                style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
-                  hintText: 'بحث في الملفات...', border: InputBorder.none,
-                  hintStyle: TextStyle(color: Colors.white60)),
-                onChanged: fp.setSearch)
-            : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Text('اختيار الملفات', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                Text(_shortPath(fp.currentPath),
-                    style: const TextStyle(fontSize: 11, color: Colors.white70),
-                    overflow: TextOverflow.ellipsis),
-              ]),
-        actions: [
-          IconButton(
-            icon: Icon(_searching ? Icons.close : Icons.search, size: 22),
-            onPressed: () => setState(() {
-              _searching = !_searching;
-              if (!_searching) { _sc.clear(); fp.setSearch(''); }
-            }),
-          ),
-          _menu(context, fp),
-        ],
+    if (!fp.permissionGranted && !fp.initialized) return _permView(fp, cs);
+
+    final items = fp.items;
+
+    return Column(children: [
+      // ── Title bar ─────────────────────────────────────────
+      Container(
+        color: cs.primary,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Row(children: [
+          Expanded(child: Text('اختيار ملفات الإدخال',
+              style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold))),
+          _menuBtn(context, fp),
+        ]),
       ),
-      body: Column(children: [
-        // breadcrumb
-        Container(
-          color: cs.primaryContainer,
-          child: SingleChildScrollView(
+      // ── Breadcrumbs ────────────────────────────────────────
+      Container(
+        color: cs.surfaceContainer,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        child: Row(children: [
+          Icon(Icons.phone_android_rounded, size: 20, color: cs.onSurfaceVariant),
+          const SizedBox(width: 4),
+          Expanded(child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Row(
               children: List.generate(fp.breadcrumbs.length, (i) {
                 final isLast = i == fp.breadcrumbs.length - 1;
@@ -82,90 +68,138 @@ class _S extends State<BrowserScreen> {
                   GestureDetector(
                     onTap: isLast ? null : () => fp.navigateToBreadcrumb(i),
                     child: Text(fp.breadcrumbs[i], style: TextStyle(
-                      fontSize: 12,
+                      fontSize: 13,
+                      color: isLast ? cs.primary : cs.onSurfaceVariant,
                       fontWeight: isLast ? FontWeight.bold : FontWeight.normal,
-                      color: isLast ? cs.onPrimaryContainer : cs.onPrimaryContainer.withOpacity(0.6),
                     )),
                   ),
-                  if (!isLast) Icon(Icons.chevron_right, size: 14, color: cs.onPrimaryContainer.withOpacity(0.4)),
+                  if (!isLast) Icon(Icons.chevron_right, size: 16, color: cs.outlineVariant),
                 ]);
               }),
             ),
-          ),
-        ),
-        // selection bar
-        if (fp.selectedCount > 0)
-          Container(
-            color: cs.secondaryContainer,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: cs.primary, borderRadius: BorderRadius.circular(20)),
-                child: Text('${fp.selectedCount} محدد',
-                    style: TextStyle(color: cs.onPrimary, fontWeight: FontWeight.bold, fontSize: 13)),
+          )),
+        ]),
+      ),
+      // ── Select / Search row ────────────────────────────────
+      Container(
+        color: cs.surfaceContainerHighest,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        child: Row(children: [
+          // Select all
+          GestureDetector(
+            onTap: fp.selectedCount > 0 ? fp.clearSelection : fp.selectAll,
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(
+                fp.selectedCount > 0 ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
+                size: 22, color: fp.selectedCount > 0 ? cs.primary : cs.onSurfaceVariant,
               ),
-              const Spacer(),
-              TextButton(onPressed: fp.selectAll, child: const Text('الكل')),
-              TextButton(onPressed: fp.clearSelection, child: const Text('إلغاء')),
+              const SizedBox(width: 4),
+              Text('اختيار الكل', style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
             ]),
           ),
-        // list
-        Expanded(child: _list(fp, cs)),
-      ]),
-    );
-  }
-
-  Widget _list(FilesProvider fp, ColorScheme cs) {
-    final items = fp.items;
-    if (items.isEmpty) {
-      return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Icon(Icons.folder_open_outlined, size: 72, color: cs.outlineVariant),
-        const SizedBox(height: 16),
-        Text('المجلد فارغ', style: TextStyle(color: cs.onSurfaceVariant)),
-      ]));
-    }
-    return ListView.builder(
-      itemCount: items.length,
-      itemBuilder: (_, i) {
-        final item = items[i];
-        if (item.isDir) {
-          return ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-            leading: Container(
-              width: 42, height: 42,
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFF8E1),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(Icons.folder_rounded, color: Color(0xFFFFB300), size: 26),
+          const SizedBox(width: 8),
+          // Search
+          Expanded(child: Container(
+            height: 32,
+            decoration: BoxDecoration(
+              color: cs.surface,
+              borderRadius: BorderRadius.circular(8),
             ),
-            title: Text(item.name,
-                style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
-            trailing: const Icon(Icons.chevron_right, color: Colors.grey, size: 20),
-            onTap: () => fp.navigateTo(item.entity.path),
-          );
-        }
-        return ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 1),
-          leading: _FileIcon(name: item.name),
-          title: Text(item.name, style: const TextStyle(fontSize: 14)),
-          subtitle: _FileInfo(file: item.file),
-          trailing: Checkbox(
-            value: item.selected,
-            onChanged: (_) => fp.toggleSelect(item),
-            activeColor: cs.primary,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Row(children: [
+              Icon(Icons.search, size: 16, color: cs.onSurfaceVariant),
+              const SizedBox(width: 4),
+              Expanded(child: TextField(
+                controller: _sc,
+                style: const TextStyle(fontSize: 13),
+                decoration: InputDecoration(
+                  hintText: 'بحث في هذا المجلد',
+                  hintStyle: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+                  border: InputBorder.none, isDense: true,
+                  contentPadding: EdgeInsets.zero,
+                ),
+                onChanged: fp.setSearch,
+              )),
+            ]),
+          )),
+          const SizedBox(width: 8),
+          // Clear + Count
+          if (fp.selectedCount > 0) ...[
+            GestureDetector(
+              onTap: fp.clearSelection,
+              child: Icon(Icons.remove_circle_outline, size: 20, color: cs.error),
+            ),
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: cs.primary,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text('${fp.selectedCount}',
+                  style: TextStyle(color: cs.onPrimary, fontWeight: FontWeight.bold, fontSize: 13)),
+            ),
+          ],
+        ]),
+      ),
+      // ── Back button row ────────────────────────────────────
+      if (fp.canGoBack)
+        InkWell(
+          onTap: fp.navigateBack,
+          child: Container(
+            color: cs.surfaceContainerLow,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(children: [
+              Icon(Icons.arrow_back_rounded, size: 20, color: cs.onSurfaceVariant),
+              const SizedBox(width: 8),
+              Text('رجوع', style: TextStyle(fontSize: 14, color: cs.onSurfaceVariant)),
+            ]),
           ),
-          onTap: () => fp.toggleSelect(item),
-          selected: item.selected,
-          selectedTileColor: cs.primaryContainer.withOpacity(0.2),
-        );
-      },
-    );
+        ),
+      Divider(height: 1, color: cs.outlineVariant),
+      // ── File list ─────────────────────────────────────────
+      Expanded(child: items.isEmpty
+          ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.folder_open_outlined, size: 64, color: cs.outlineVariant),
+              const SizedBox(height: 12),
+              Text('لا توجد ملفات', style: TextStyle(color: cs.onSurfaceVariant)),
+            ]))
+          : ListView.separated(
+              itemCount: items.length,
+              separatorBuilder: (_, __) =>
+                  Divider(height: 1, indent: 56, color: cs.outlineVariant),
+              itemBuilder: (_, i) {
+                final item = items[i];
+                if (item.isDir) {
+                  return ListTile(
+                    dense: true,
+                    leading: Icon(Icons.folder_rounded, color: const Color(0xFFFFB300), size: 28),
+                    title: Text(item.name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                    trailing: Icon(Icons.chevron_right, color: Colors.grey.shade400),
+                    onTap: () => fp.navigateTo(item.entity.path),
+                  );
+                }
+                final selected = fp.isSelected(item);
+                return ListTile(
+                  dense: true,
+                  leading: _FileIcon(name: item.name),
+                  title: Text(item.name, style: const TextStyle(fontSize: 14)),
+                  subtitle: _FileInfo(file: item.file),
+                  trailing: Icon(
+                    selected ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
+                    color: selected ? cs.primary : cs.outlineVariant,
+                    size: 22,
+                  ),
+                  onTap: () => fp.toggleSelect(item),
+                  selected: selected,
+                  selectedTileColor: cs.primaryContainer.withOpacity(0.2),
+                );
+              },
+            )),
+    ]);
   }
 
-  Widget _menu(BuildContext ctx, FilesProvider fp) {
+  Widget _menuBtn(BuildContext ctx, FilesProvider fp) {
     return PopupMenuButton<String>(
       icon: const Icon(Icons.more_vert, color: Colors.white),
       onSelected: (v) {
@@ -174,6 +208,7 @@ class _S extends State<BrowserScreen> {
         if (v == 'name') fp.setSort(SortBy.name, fp.sortOrder == SortOrder.ascending ? SortOrder.descending : SortOrder.ascending);
         if (v == 'date') fp.setSort(SortBy.date, SortOrder.descending);
         if (v == 'size') fp.setSort(SortBy.size, SortOrder.descending);
+        if (v == 'ext') fp.setSort(SortBy.extension, SortOrder.ascending);
       },
       itemBuilder: (_) => <PopupMenuEntry<String>>[
         PopupMenuItem<String>(value: 'hidden',
@@ -183,6 +218,7 @@ class _S extends State<BrowserScreen> {
         const PopupMenuItem<String>(value: 'name', child: Text('ترتيب بالاسم')),
         const PopupMenuItem<String>(value: 'date', child: Text('ترتيب بالتاريخ')),
         const PopupMenuItem<String>(value: 'size', child: Text('ترتيب بالحجم')),
+        const PopupMenuItem<String>(value: 'ext', child: Text('ترتيب بالامتداد')),
       ],
     );
   }
@@ -197,7 +233,6 @@ class _S extends State<BrowserScreen> {
           ListTile(
             leading: const Icon(Icons.storage_rounded),
             title: Text(dir.path.contains('emulated') ? 'التخزين الداخلي' : 'بطاقة SD'),
-            subtitle: Text(dir.path),
             onTap: () { Navigator.pop(ctx); fp.navigateTo(dir.path); },
           ),
         const SizedBox(height: 8),
@@ -205,16 +240,16 @@ class _S extends State<BrowserScreen> {
     ));
   }
 
-  Widget _permView(BuildContext ctx, FilesProvider fp, ColorScheme cs) {
-    return Scaffold(body: Center(child: Padding(
+  Widget _permView(FilesProvider fp, ColorScheme cs) {
+    return Center(child: Padding(
       padding: const EdgeInsets.all(40),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Icon(Icons.folder_off_outlined, size: 80, color: cs.outlineVariant),
+        Icon(Icons.folder_off_outlined, size: 72, color: cs.outlineVariant),
         const SizedBox(height: 24),
-        Text('صلاحية الوصول للملفات',
-            style: Theme.of(ctx).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+        const Text('صلاحية الوصول للملفات',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 12),
-        Text('يحتاج التطبيق صلاحية الوصول لتخزين جهازك لإعادة تسمية الملفات.',
+        Text('يحتاج التطبيق الوصول لتخزين جهازك',
             textAlign: TextAlign.center,
             style: TextStyle(color: cs.onSurfaceVariant)),
         const SizedBox(height: 32),
@@ -228,12 +263,7 @@ class _S extends State<BrowserScreen> {
           style: FilledButton.styleFrom(minimumSize: const Size(200, 48)),
         ),
       ]),
-    )));
-  }
-
-  String _shortPath(String p) {
-    final rel = p.replaceFirst(RegExp(r'/storage/emulated/0/?'), '');
-    return rel.isEmpty ? 'التخزين الداخلي' : rel;
+    ));
   }
 }
 
@@ -243,17 +273,11 @@ class _FileIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ext = name.contains('.') ? name.split('.').last.toLowerCase() : '';
-    final data = _icon(ext);
-    return Container(
-      width: 42, height: 42,
-      decoration: BoxDecoration(
-        color: data.$2.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Icon(data.$1, color: data.$2, size: 24),
-    );
+    final (icon, color) = _ic(ext);
+    return SizedBox(width: 36, height: 36,
+      child: Icon(icon, color: color, size: 26));
   }
-  (IconData, Color) _icon(String e) {
+  (IconData, Color) _ic(String e) {
     if (['jpg','jpeg','png','gif','webp','bmp','heic'].contains(e)) return (Icons.image_rounded, Colors.teal);
     if (['mp4','avi','mkv','mov','3gp'].contains(e)) return (Icons.movie_rounded, Colors.indigo);
     if (['mp3','flac','wav','aac','ogg'].contains(e)) return (Icons.music_note_rounded, Colors.orange);
@@ -272,10 +296,14 @@ class _FileInfo extends StatelessWidget {
   Widget build(BuildContext context) {
     try {
       final s = file.statSync();
-      final sz = s.size > 1048576 ? '${(s.size/1048576).toStringAsFixed(1)} م.ب'
-          : s.size > 1024 ? '${(s.size/1024).toStringAsFixed(0)} ك.ب' : '${s.size} ب';
+      final sz = s.size > 1048576
+          ? '${(s.size / 1048576).toStringAsFixed(1)} م.ب'
+          : s.size > 1024
+              ? '${(s.size / 1024).toStringAsFixed(0)} ك.ب'
+              : '${s.size} ب';
       final d = s.modified;
-      return Text('$sz · ${d.year}/${d.month.toString().padLeft(2,'0')}/${d.day.toString().padLeft(2,'0')}',
+      return Text(
+          '$sz · ${d.year}/${d.month.toString().padLeft(2, '0')}/${d.day.toString().padLeft(2, '0')}',
           style: const TextStyle(fontSize: 11));
     } catch (_) { return const SizedBox(); }
   }
