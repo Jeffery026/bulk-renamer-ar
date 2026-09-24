@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/files_provider.dart';
-import '../providers/operations_provider.dart';
 import 'browser/browser_screen.dart';
 import 'operations/operations_screen.dart';
 import 'preview/preview_screen.dart';
@@ -9,11 +8,10 @@ import 'settings/settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
-  @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  @override State<HomeScreen> createState() => _HS();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HS extends State<HomeScreen> {
   final _ctrl = PageController();
   int _page = 0;
 
@@ -21,65 +19,65 @@ class _HomeScreenState extends State<HomeScreen> {
       duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
 
   @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
+  void dispose() { _ctrl.dispose(); super.dispose(); }
 
   @override
   Widget build(BuildContext context) {
     final fp = context.watch<FilesProvider>();
     final cs = Theme.of(context).colorScheme;
+    final bottom = MediaQuery.of(context).viewPadding.bottom;
 
     return Scaffold(
       body: PageView(
         controller: _ctrl,
-        physics: const NeverScrollableScrollPhysics(),
+        // ← تمكين السحب بين الصفحات
         onPageChanged: (p) => setState(() => _page = p),
         children: const [BrowserScreen(), OperationsScreen(), PreviewScreen()],
       ),
       bottomNavigationBar: Container(
-        height: 48,
+        // ← ارتفاع تلقائي يراعي أزرار النظام السفلية
         color: cs.primary,
-        child: Row(children: [
-          // Settings
-          IconButton(
-            icon: const Icon(Icons.settings_outlined, size: 20),
-            color: Colors.white70,
-            onPressed: () => Navigator.push(context,
-                MaterialPageRoute(builder: (_) => const SettingsScreen())),
-          ),
-          // Prev
-          IconButton(
-            icon: const Icon(Icons.arrow_back_ios_rounded, size: 20),
-            color: _page > 0 ? Colors.white : Colors.white30,
-            onPressed: _page > 0 ? () => _go(_page - 1) : null,
-          ),
-          // Indicators
-          Expanded(
-            child: Row(
+        padding: EdgeInsets.only(bottom: bottom),
+        child: SizedBox(
+          height: 52,
+          child: Row(children: [
+            // زر الإعدادات
+            IconButton(
+              icon: const Icon(Icons.settings_outlined, size: 20, color: Colors.white70),
+              onPressed: () => Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const SettingsScreen())),
+            ),
+            // ← يسار
+            IconButton(
+              icon: const Icon(Icons.chevron_left_rounded, size: 26),
+              color: _page > 0 ? Colors.white : Colors.white30,
+              onPressed: _page > 0 ? () => _go(_page - 1) : null,
+            ),
+            // نقاط التنقل
+            Expanded(child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _ind(0, 'الإدخال', fp.selectedCount, cs),
-                const SizedBox(width: 20),
-                _ind(1, 'الخيارات', 0, cs),
-                const SizedBox(width: 20),
-                _ind(2, 'المخرجات', 0, cs),
+                _dot(0, 'الإدخال', fp.selectedCount, cs),
+                const SizedBox(width: 18),
+                _dot(1, 'الخيارات', 0, cs),
+                const SizedBox(width: 18),
+                _dot(2, 'المخرجات', 0, cs),
               ],
+            )),
+            // يمين ←
+            IconButton(
+              icon: const Icon(Icons.chevron_right_rounded, size: 26),
+              color: _page < 2 ? Colors.white : Colors.white30,
+              onPressed: _page < 2 ? () => _go(_page + 1) : null,
             ),
-          ),
-          // Next
-          IconButton(
-            icon: const Icon(Icons.arrow_forward_ios_rounded, size: 20),
-            color: _page < 2 ? Colors.white : Colors.white30,
-            onPressed: _page < 2 ? () => _go(_page + 1) : null,
-          ),
-        ]),
+            const SizedBox(width: 8),
+          ]),
+        ),
       ),
     );
   }
 
-  Widget _ind(int i, String label, int badge, ColorScheme cs) {
+  Widget _dot(int i, String label, int badge, ColorScheme cs) {
     final active = _page == i;
     return GestureDetector(
       onTap: () => _go(i),
@@ -94,22 +92,19 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(width: 3),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-              ),
+              decoration: BoxDecoration(color: Colors.white,
+                  borderRadius: BorderRadius.circular(8)),
               child: Text('$badge', style: TextStyle(
-                fontSize: 9, fontWeight: FontWeight.bold, color: cs.primary)),
+                  fontSize: 9, fontWeight: FontWeight.bold, color: cs.primary)),
             ),
           ],
         ]),
         const SizedBox(height: 2),
         AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          width: active ? 22 : 7,
-          height: 4,
+          width: active ? 24 : 6, height: 4,
           decoration: BoxDecoration(
-            color: active ? Colors.white : Colors.white38,
+            color: active ? Colors.white : Colors.white30,
             borderRadius: BorderRadius.circular(2),
           ),
         ),
