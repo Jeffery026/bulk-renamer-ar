@@ -25,20 +25,18 @@ class _HS extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final fp = context.watch<FilesProvider>();
     final cs = Theme.of(context).colorScheme;
-    final bottom = MediaQuery.of(context).viewPadding.bottom;
-
     return Scaffold(
       body: PageView(
         controller: _ctrl,
         // ← تمكين السحب بين الصفحات
         onPageChanged: (p) => setState(() => _page = p),
+        physics: const PageScrollPhysics(),
         children: const [BrowserScreen(), OperationsScreen(), PreviewScreen()],
       ),
-      bottomNavigationBar: Container(
-        // ← ارتفاع تلقائي يراعي أزرار النظام السفلية
-        color: cs.primary,
-        padding: EdgeInsets.only(bottom: bottom),
-        child: SizedBox(
+      bottomNavigationBar: SafeArea(
+        top: false, left: false, right: false,
+        child: Container(
+          color: cs.primary,
           height: 52,
           child: Row(children: [
             // زر الإعدادات
@@ -74,6 +72,7 @@ class _HS extends State<HomeScreen> {
           ]),
         ),
       ),
+        ),
     );
   }
 
