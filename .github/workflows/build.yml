@@ -42,8 +42,8 @@ jobs:
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.0
-          name: "مُعيد التسمية v1.0.0"
+          tag_name: v1.0.5
+          name: "مُعيد التسمية v1.0.5 — إصلاح أزرار النظام"
           body: |
             ## مُعيد التسمية الجماعية
             - إضافة بادئة / لاحقة / في أي موضع بزرّي +-
