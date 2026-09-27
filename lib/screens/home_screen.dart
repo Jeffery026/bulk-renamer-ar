@@ -8,7 +8,8 @@ import 'settings/settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
-  @override State<HomeScreen> createState() => _HS();
+  @override
+  State<HomeScreen> createState() => _HS();
 }
 
 class _HS extends State<HomeScreen> {
@@ -25,33 +26,32 @@ class _HS extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final fp = context.watch<FilesProvider>();
     final cs = Theme.of(context).colorScheme;
+
     return Scaffold(
       body: PageView(
         controller: _ctrl,
-        // ← تمكين السحب بين الصفحات
-        onPageChanged: (p) => setState(() => _page = p),
         physics: const PageScrollPhysics(),
+        onPageChanged: (p) => setState(() => _page = p),
         children: const [BrowserScreen(), OperationsScreen(), PreviewScreen()],
       ),
       bottomNavigationBar: SafeArea(
-        top: false, left: false, right: false,
+        top: false,
+        left: false,
+        right: false,
         child: Container(
-          color: cs.primary,
           height: 52,
+          color: cs.primary,
           child: Row(children: [
-            // زر الإعدادات
             IconButton(
               icon: const Icon(Icons.settings_outlined, size: 20, color: Colors.white70),
               onPressed: () => Navigator.push(context,
                   MaterialPageRoute(builder: (_) => const SettingsScreen())),
             ),
-            // ← يسار
             IconButton(
               icon: const Icon(Icons.chevron_left_rounded, size: 26),
               color: _page > 0 ? Colors.white : Colors.white30,
               onPressed: _page > 0 ? () => _go(_page - 1) : null,
             ),
-            // نقاط التنقل
             Expanded(child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -62,7 +62,6 @@ class _HS extends State<HomeScreen> {
                 _dot(2, 'المخرجات', 0, cs),
               ],
             )),
-            // يمين ←
             IconButton(
               icon: const Icon(Icons.chevron_right_rounded, size: 26),
               color: _page < 2 ? Colors.white : Colors.white30,
@@ -72,7 +71,6 @@ class _HS extends State<HomeScreen> {
           ]),
         ),
       ),
-        ),
     );
   }
 
@@ -84,24 +82,28 @@ class _HS extends State<HomeScreen> {
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         Row(mainAxisSize: MainAxisSize.min, children: [
           Text(label, style: TextStyle(
-            fontSize: 11, fontWeight: active ? FontWeight.bold : FontWeight.normal,
+            fontSize: 11,
+            fontWeight: active ? FontWeight.bold : FontWeight.normal,
             color: active ? Colors.white : Colors.white60,
           )),
           if (badge > 0) ...[
             const SizedBox(width: 3),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-              decoration: BoxDecoration(color: Colors.white,
-                  borderRadius: BorderRadius.circular(8)),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+              ),
               child: Text('$badge', style: TextStyle(
-                  fontSize: 9, fontWeight: FontWeight.bold, color: cs.primary)),
+                fontSize: 9, fontWeight: FontWeight.bold, color: cs.primary)),
             ),
           ],
         ]),
         const SizedBox(height: 2),
         AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          width: active ? 24 : 6, height: 4,
+          width: active ? 24 : 6,
+          height: 4,
           decoration: BoxDecoration(
             color: active ? Colors.white : Colors.white30,
             borderRadius: BorderRadius.circular(2),
