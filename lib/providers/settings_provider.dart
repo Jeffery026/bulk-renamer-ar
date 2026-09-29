@@ -1,33 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../theme/app_theme.dart';
 
 class SettingsProvider extends ChangeNotifier {
   double _fontSize = 1.0;
-  ThemeMode _themeMode = ThemeMode.system;
+  AppThemeType _theme = AppThemeType.blue;
 
   double get fontSize => _fontSize;
-  ThemeMode get themeMode => _themeMode;
+  AppThemeType get themeType => _theme;
+  bool get isDark => kThemes[_theme]!.isDark;
 
   SettingsProvider() { _load(); }
 
   Future<void> _load() async {
     final p = await SharedPreferences.getInstance();
     _fontSize = p.getDouble('fontSize') ?? 1.0;
-    _themeMode = ThemeMode.values[p.getInt('themeMode') ?? 0];
+    final ti = p.getInt('themeIndex') ?? 0;
+    _theme = AppThemeType.values[ti.clamp(0, AppThemeType.values.length - 1)];
     notifyListeners();
   }
 
   Future<void> setFontSize(double v) async {
     _fontSize = v;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
-    await p.setDouble('fontSize', v);
+    (await SharedPreferences.getInstance()).setDouble('fontSize', v);
   }
 
-  Future<void> setThemeMode(ThemeMode m) async {
-    _themeMode = m;
+  Future<void> setTheme(AppThemeType t) async {
+    _theme = t;
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
-    await p.setInt('themeMode', m.index);
+    (await SharedPreferences.getInstance()).setInt('themeIndex', t.index);
   }
 }
