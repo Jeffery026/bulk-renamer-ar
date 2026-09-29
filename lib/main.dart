@@ -13,7 +13,6 @@ void main() {
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     systemNavigationBarColor: Colors.transparent,
-    systemNavigationBarDividerColor: Colors.transparent,
     statusBarColor: Colors.transparent,
   ));
   runApp(const BulkRenamerApp());
@@ -21,7 +20,6 @@ void main() {
 
 class BulkRenamerApp extends StatelessWidget {
   const BulkRenamerApp({super.key});
-
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
@@ -34,9 +32,7 @@ class BulkRenamerApp extends StatelessWidget {
         builder: (_, settings, __) => MaterialApp(
           title: 'مُعيد التسمية',
           debugShowCheckedModeBanner: false,
-          theme: AppTheme.lightTheme(settings.fontSize),
-          darkTheme: AppTheme.darkTheme(settings.fontSize),
-          themeMode: settings.themeMode,
+          theme: AppTheme.build(settings.themeType, settings.fontSize),
           localizationsDelegates: const [
             GlobalMaterialLocalizations.delegate,
             GlobalWidgetsLocalizations.delegate,
